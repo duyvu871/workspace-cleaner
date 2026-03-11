@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace Cleaner</title>
+  <meta name="description" content="Scan and delete unused workspaces, dev folders, and Docker data to free disk space">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .scan-pulse { animation: scanPulse 1.5s ease-in-out infinite; }
+    @keyframes scanPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-slate-800 h-screen overflow-hidden flex flex-col" x-data="app()" x-init="init()">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="border-b border-slate-200 bg-white flex-shrink-0 z-10 shadow-sm relative">
+    <div class="px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-emerald-500 rounded-lg flex items-center justify-center">
+          <i data-lucide="folder-search" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-semibold text-slate-900">Workspace Cleaner</h1>
+        </div>
+      </div>
+      <div x-show="systemInfo" x-cloak class="flex items-center gap-2 text-xs text-slate-500">
+        <span class="bg-slate-100 text-slate-600 px-2.5 py-1.5 rounded-md font-medium border border-slate-200"
+              x-text="systemInfo?.platform + ' / ' + systemInfo?.arch"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 flex overflow-hidden">
+    <!-- ── Left Sidebar (Options) ─────────────────────────────────────── -->
+    <aside class="w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 overflow-y-auto z-0">
+      <div class="p-6 space-y-6">
+        <!-- Scan Form -->
+        <section class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Scan Directory</label>
+            <div class="relative">
+              <i data-lucide="folder" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+              <input
+                type="text"
+                x-model="scanPath"
+                @keydown.enter="startScan()"
+                :disabled="scanning"
+                placeholder="/home/user/projects"
+                class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm
+                       focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400
+                       disabled:bg-slate-50 disabled:text-slate-400"
+              >
+            </div>
+            
+            <!-- Quick paths -->
+            <div class="flex items-center gap-2 mt-2 flex-wrap">
+              <span class="text-xs text-slate-400">Quick:</span>
+              <template x-for="qp in quickPaths" :key="qp.path">
+                <button
+                  @click="scanPath = qp.path"
+                  :disabled="scanning"
+                  class="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-600
+                         hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200
+                         transition-colors disabled:opacity-40 cursor-pointer">
+                  <span x-text="qp.label"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Target selectors -->
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">Targets</label>
+            <div class="flex flex-wrap gap-2">
+              <template x-for="t in scanTargets" :key="t.key">
+                <button
+                  @click="toggleTarget(t.key)"
+                  :disabled="scanning"
+                  :class="activeTargets.includes(t.key)
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'"
+                  class="text-xs px-2.5 py-1.5 rounded-md border transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1.5">
+                  <span x-text="t.label"></span>
+                  <span x-show="activeTargets.includes(t.key)" class="text-emerald-500 text-[10px]">✓</span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <div class="flex gap-2 pt-2">
+            <button
+              @click="startScan()"
+              :disabled="scanning || !scanPath.trim() || activeTargets.length === 0"
+              class="flex-1 py-2.5 bg-emerald-500 text-white text-sm font-medium rounded-lg
+                     hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                     flex items-center justify-center gap-2">
+              <i data-lucide="search" class="w-4 h-4" :class="{ 'scan-pulse': scanning }"></i>
+              <span x-text="scanning ? 'Scanning...' : 'Start Scan'"></span>
+            </button>
+            <button
+              x-show="scanning" x-cloak
+              @click="cancelScan()"
+              class="px-4 py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg
+                     hover:bg-slate-200 transition-colors flex items-center justify-center cursor-pointer">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- Progress -->
+        <section x-show="scanning" x-cloak x-transition
+                 class="bg-slate-50 rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-emerald-500 scan-pulse"></div>
+              <span class="text-sm font-medium text-slate-700">Scanning...</span>
+            </div>
+            <span class="text-xs text-slate-400" x-text="folders.length + ' found'"></span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-500 rounded-full scan-pulse" style="width: 100%"></div>
+          </div>
+          <p class="text-xs text-slate-400 mt-2 text-right truncate" x-text="scanProgress" title="Current directory"></p>
+        </section>
+
+        <!-- Error -->
+        <section x-show="error" x-cloak x-transition
+                 class="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+          <i data-lucide="alert-circle" class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"></i>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-red-700">Error</p>
+            <p class="text-xs text-red-600 mt-1 break-words" x-text="error"></p>
+          </div>
+          <button @click="error = ''" class="text-red-400 hover:text-red-600 cursor-pointer">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </section>
+
+        <!-- Stats (Moved to Sidebar) -->
+        <section x-show="!scanning && folders.length > 0" x-cloak x-transition
+                 class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+          <div class="col-span-2 bg-emerald-50/50 rounded-xl border border-emerald-100 p-4 shadow-sm flex items-center justify-between">
+            <p class="text-sm font-medium text-emerald-800">Total Size</p>
+            <p class="text-2xl font-bold text-emerald-600" x-text="formatBytes(totalSize)"></p>
+          </div>
+          <div class="bg-slate-50 rounded-xl border border-slate-200 p-3 shadow-sm text-center">
+            <p class="text-xs text-slate-500 mb-1">Items Found</p>
+            <p class="text-xl font-semibold text-slate-900" x-text="folders.length"></p>
+          </div>
+          <div class="bg-slate-50 rounded-xl border border-slate-200 p-3 shadow-sm text-center">
+            <p class="text-xs text-slate-500 mb-1">Selected</p>
+            <p class="text-xl font-semibold" :class="selected.length > 0 ? 'text-red-500' : 'text-slate-400'"
+               x-text="selected.length"></p>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <!-- ── Right Content (Results) ────────────────────────────────────── -->
+    <section class="flex-1 flex flex-col bg-slate-50 relative flex-shrink-0 min-w-0">
+      <div class="flex-1 flex flex-col min-h-0 p-6 overflow-hidden transition-all duration-300" :class="{ 'pb-[88px]': selected.length > 0 }">
+
+        <!-- Results Table -->
+        <div x-show="!scanning && folders.length > 0" x-cloak x-transition class="bg-white rounded-xl border border-slate-200 flex flex-col flex-1 min-h-0 shadow-sm overflow-hidden">
+          <!-- Table header (Pinned) -->
+          <div class="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/90 z-10 backdrop-blur-sm">
+            <label class="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600">
+              <input type="checkbox" :checked="allSelected" @change="toggleAll()"
+                     class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500/20 cursor-pointer">
+              <span x-text="allSelected ? 'Deselect all' : 'Select all'"></span>
+            </label>
+            <div class="flex items-center gap-4">
+              <button @click="sortFolders('size')"
+                      class="text-xs font-semibold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="arrow-down-wide-narrow" class="w-3.5 h-3.5"></i> Size
+              </button>
+              <button @click="sortFolders('name')"
+                      class="text-xs font-semibold text-slate-500 hover:text-emerald-600 transition-colors flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="arrow-down-a-z" class="w-3.5 h-3.5"></i> Name
+              </button>
+            </div>
+          </div>
+
+          <!-- Rows (Scrollable) -->
+          <div class="flex-1 overflow-y-auto divide-y divide-slate-100 bg-white min-h-0">
+            <template x-for="folder in folders" :key="folder.path">
+
+              <div class="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                   :class="{ 'bg-red-50/40 hover:bg-red-50/60': isSelected(folder.path) }"
+                   @click.self="toggleSelect(folder.path)">
+                <input type="checkbox" :checked="isSelected(folder.path)"
+                       @change="toggleSelect(folder.path)"
+                       class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500/20 cursor-pointer flex-shrink-0">
+                <div class="flex-1 min-w-0 pointer-events-none">
+                  <div class="flex items-center gap-2">
+                    <template x-if="folder.category === 'docker' && folder.isVirtual">
+                      <i data-lucide="package" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+                    </template>
+                    <template x-if="folder.category === 'docker_vol' && folder.isVirtual">
+                      <i data-lucide="database" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+                    </template>
+                    <template x-if="!folder.isVirtual">
+                      <i data-lucide="folder" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+                    </template>
+                    <span class="text-sm font-semibold text-slate-800 truncate" x-text="folder.projectName"></span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                          :class="getCategoryStyle(folder.category)"
+                          x-text="getCategoryLabel(folder.category)"></span>
+                  </div>
+                  <p class="text-xs text-slate-400 truncate mt-1">
+                    <span class="text-slate-500" x-text="folder.isVirtual ? (folder.category === 'docker' ? 'Image' : 'Volume') : folder.folderName"></span>
+                    <span class="mx-1">·</span>
+                    <span class="truncate" x-text="folder.isVirtual ? folder.path.replace(/docker-(image|volume):/, 'ID: ') : folder.path"></span>
+                  </p>
+                </div>
+                <div class="text-right flex-shrink-0 pointer-events-none">
+                  <p class="text-sm font-semibold" :class="folder.size > 200*1024*1024 ? 'text-red-500' : folder.size > 50*1024*1024 ? 'text-amber-500' : 'text-slate-700'"
+                     x-text="formatBytes(folder.size)"></p>
+                  <p class="text-xs text-slate-400 mt-0.5" x-text="formatDate(folder.lastModified)"></p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="!scanning && scanDone && folders.length === 0" x-cloak x-transition
+             class="bg-white rounded-xl border border-slate-200 p-16 text-center shadow-sm max-w-lg mx-auto mt-auto mb-auto h-auto self-center">
+          <div class="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="check-circle-2" class="w-8 h-8 text-emerald-500"></i>
+          </div>
+          <p class="text-slate-800 font-semibold text-lg">Clean Directory</p>
+          <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">No matching folders or targets were found. Your directory is already saving space.</p>
+        </div>
+      </div>
+      
+      <!-- Sticky Action Bar (Absolute bottom of right panel) -->
+      <div x-show="selected.length > 0" x-cloak x-transition
+           class="absolute bottom-0 inset-x-0 bg-white border-t border-slate-200 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.05)] z-20">
+        <div class="px-6 py-4 flex items-center justify-between">
+          <div class="text-sm text-slate-600">
+            <span class="font-semibold text-slate-900" x-text="selected.length"></span> items selected
+            <span class="text-slate-300 mx-2">|</span>
+            <span class="font-semibold text-emerald-600 text-base" x-text="formatBytes(selectedSize)"></span> to free up
+          </div>
+          <div class="flex items-center gap-3">
+            <button @click="selected = []"
+                    class="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+              Cancel
+            </button>
+            <button @click="showConfirm = true"
+                    class="px-6 py-2.5 bg-red-500 text-white text-sm font-medium rounded-lg
+                           hover:bg-red-600 transition-colors flex items-center gap-2 cursor-pointer shadow-sm">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── Confirmation Modal ───────────────────────────────────────────── -->
+  <div x-show="showConfirm" x-cloak x-transition.opacity
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div @click.away="showConfirm = false" x-transition.scale.95
+         class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900">Confirm Deletion</h2>
+            <p class="text-sm text-slate-500">This action cannot be undone.</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1.5 mb-4">
+          <template x-for="p in selected" :key="p">
+            <div class="text-xs text-slate-600 flex items-center gap-2">
+              <i data-lucide="folder-minus" class="w-3.5 h-3.5 text-red-400 flex-shrink-0"></i>
+              <span class="truncate" x-text="p"></span>
+            </div>
+          </template>
+        </div>
+
+        <p class="text-sm text-slate-600">
+          Free up <span class="font-semibold text-emerald-600" x-text="formatBytes(selectedSize)"></span>
+          by deleting <span class="font-semibold" x-text="selected.length"></span> folder(s)?
+        </p>
+      </div>
+
+      <div class="flex border-t border-slate-100">
+        <button @click="showConfirm = false"
+                class="flex-1 py-3 text-sm text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+          Cancel
+        </button>
+        <button @click="confirmDelete()"
+                :disabled="deleting"
+                class="flex-1 py-3 text-sm font-medium text-red-600 hover:bg-red-50
+                       transition-colors border-l border-slate-100 disabled:opacity-50 cursor-pointer">
+          <span x-text="deleting ? 'Deleting...' : 'Yes, Delete All'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Delete Progress Toast ────────────────────────────────────────── -->
+  <div x-show="deleting" x-cloak x-transition
+       class="fixed top-5 right-5 z-50 bg-white rounded-xl border border-slate-200 shadow-lg p-4 w-80">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="w-2 h-2 rounded-full bg-red-500 scan-pulse"></div>
+      <span class="text-sm font-medium text-slate-700">Deleting...</span>
+    </div>
+    <p class="text-xs text-slate-500" x-text="deleteProgress"></p>
+  </div>
+
+  <script>
+    function app() {
+      return {
+        // State
+        systemInfo: null,
+        scanPath: '',
+        folders: [],
+        selected: [],
+        scanning: false,
+        scanDone: false,
+        deleting: false,
+        scanProgress: '',
+        deleteProgress: '',
+        error: '',
+        _eventSource: null,
+        showConfirm: false,
+        sortKey: 'size',
+        sortAsc: false,
+
+        // Quick paths & targets
+        quickPaths: [],
+        scanTargets: [],
+        activeTargets: ['node'],
+
+        // Computed
+        get totalSize() {
+          return this.folders.reduce((sum, f) => sum + f.size, 0);
+        },
+        get selectedSize() {
+          return this.folders
+            .filter((f) => this.selected.includes(f.path))
+            .reduce((sum, f) => sum + f.size, 0);
+        },
+        get allSelected() {
+          return this.folders.length > 0 && this.selected.length === this.folders.length;
+        },
+
+        // Init
+        async init() {
+          try {
+            const res = await fetch('/api/system-info');
+            this.systemInfo = await res.json();
+            this.scanPath = this.systemInfo.homedir;
+            this.quickPaths = [
+              { label: '~ Home', path: this.systemInfo.homedir },
+              { label: '/ Root', path: '/' },
+              { label: '/tmp', path: '/tmp' },
+            ];
+            this.scanTargets = this.systemInfo.targets || [];
+          } catch (e) {
+            this.error = 'Failed to load system info';
+          }
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        // Targets
+        toggleTarget(key) {
+          if (this.activeTargets.includes(key)) {
+            if (this.activeTargets.length > 1) {
+              this.activeTargets = this.activeTargets.filter((t) => t !== key);
+            }
+          } else {
+            this.activeTargets.push(key);
+          }
+        },
+
+        // Scan
+        startScan() {
+          if (this.scanning || !this.scanPath.trim() || this.activeTargets.length === 0) return;
+
+          this.scanning = true;
+          this.scanDone = false;
+          this.folders = [];
+          this.selected = [];
+          this.error = '';
+          this.scanProgress = 'Starting scan...';
+
+          const targets = this.activeTargets.join(',');
+          const url = `/api/scan?rootPath=${encodeURIComponent(this.scanPath.trim())}&targets=${encodeURIComponent(targets)}`;
+          const es = new EventSource(url);
+          this._eventSource = es;
+
+          es.addEventListener('result', (e) => {
+            const data = JSON.parse(e.data);
+            this.folders.push(data);
+            this.sortFolders(this.sortKey);
+            this.$nextTick(() => lucide.createIcons());
+          });
+
+          es.addEventListener('progress', (e) => {
+            const data = JSON.parse(e.data);
+            this.scanProgress = data.currentDir;
+          });
+
+          es.addEventListener('done', (e) => {
+            es.close();
+            this._eventSource = null;
+            this.scanning = false;
+            this.scanDone = true;
+            this.scanProgress = '';
+            this.$nextTick(() => lucide.createIcons());
+          });
+
+          es.addEventListener('error', (e) => {
+            if (e.data) {
+              const data = JSON.parse(e.data);
+              this.error = data.message;
+            }
+            es.close();
+            this.scanning = false;
+          });
+
+          es.onerror = () => {
+            es.close();
+            this._eventSource = null;
+            this.scanning = false;
+            if (!this.scanDone) {
+              this.error = 'Scan connection lost. The path may be invalid or inaccessible.';
+            }
+            this.$nextTick(() => lucide.createIcons());
+          };
+        },
+
+        // Cancel scan
+        cancelScan() {
+          if (this._eventSource) {
+            this._eventSource.close();
+            this._eventSource = null;
+          }
+          this.scanning = false;
+          this.scanDone = true;
+          this.scanProgress = '';
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        // Delete
+        async confirmDelete() {
+          if (this.deleting) return;
+
+          this.deleting = true;
+          this.showConfirm = false;
+          this.deleteProgress = 'Starting deletion...';
+
+          try {
+            const res = await fetch('/api/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paths: [...this.selected] }),
+            });
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.path) {
+                    this.deleteProgress = `Deleted: ${data.path.split('/').pop()}`;
+                    if (data.success) {
+                      this.folders = this.folders.filter((f) => f.path !== data.path);
+                      this.selected = this.selected.filter((p) => p !== data.path);
+                    }
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            this.error = 'Delete failed: ' + e.message;
+          }
+
+          this.deleting = false;
+          this.deleteProgress = '';
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        // Selection
+        isSelected(path) {
+          return this.selected.includes(path);
+        },
+        toggleSelect(path) {
+          if (this.isSelected(path)) {
+            this.selected = this.selected.filter((p) => p !== path);
+          } else {
+            this.selected.push(path);
+          }
+        },
+        toggleAll() {
+          if (this.allSelected) {
+            this.selected = [];
+          } else {
+            this.selected = this.folders.map((f) => f.path);
+          }
+        },
+
+        // Sorting
+        sortFolders(key) {
+          if (this.sortKey === key) {
+            this.sortAsc = !this.sortAsc;
+          } else {
+            this.sortKey = key;
+            this.sortAsc = key === 'name';
+          }
+
+          this.folders.sort((a, b) => {
+            let cmp = 0;
+            if (key === 'size') cmp = b.size - a.size;
+            else cmp = a.projectName.localeCompare(b.projectName);
+            return this.sortAsc ? -cmp : cmp;
+          });
+        },
+
+        // Formatting
+        formatBytes(bytes) {
+          if (!bytes || bytes === 0) return '0 B';
+          const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(1024));
+          return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
+        },
+        formatDate(isoStr) {
+          if (!isoStr) return '';
+          const d = new Date(isoStr);
+          return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        },
+        getCategoryLabel(cat) {
+          const map = {
+            node: 'Node',
+            python: 'Python',
+            java: 'Java',
+            php: 'PHP',
+            dotnet: '.Net',
+            build: 'Build',
+            docker: 'Docker (IMG)',
+            docker_vol: 'Docker (VOL)',
+            system: 'System',
+          };
+          return map[cat] || cat;
+        },
+        getCategoryStyle(cat) {
+          const styles = {
+            node:       'bg-green-50 text-green-700 border border-green-200',
+            python:     'bg-blue-50 text-blue-700 border border-blue-200',
+            java:       'bg-orange-50 text-orange-700 border border-orange-200',
+            php:        'bg-purple-50 text-purple-700 border border-purple-200',
+            dotnet:     'bg-indigo-50 text-indigo-700 border border-indigo-200',
+            build:      'bg-amber-50 text-amber-700 border border-amber-200',
+            docker:     'bg-sky-50 text-sky-700 border border-sky-200',
+            docker_vol: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+            system:     'bg-pink-50 text-pink-700 border border-pink-200',
+          };
+          return styles[cat] || 'bg-slate-100 text-slate-600 border border-slate-200';
+        },
+      };
+    }
+  </script>
+</body>
+</html>
