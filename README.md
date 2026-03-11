@@ -1,6 +1,8 @@
 # Workspace Cleaner
 
-A web-based utility to scan your system for large unused folders like `node_modules`, `venv`, `target`, and Docker images/volumes, and easily delete them to free up disk space. 
+A web-based utility to scan your system for large unused folders like `node_modules`, `venv`, `target`, and Docker images/volumes, and easily delete them to free up disk space.
+
+![Dashboard Mockup](./public/mockup.png)
 
 ## Features
 - **Dashboard UI**: Clean and easy to use dashboard UI.
