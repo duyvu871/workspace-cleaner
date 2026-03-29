@@ -39,3 +39,5 @@ nsis:
 publish:
   provider: github
   releaseType: draft
+  # Nội dung mô tả trên GitHub Release (draft). Sửa file này trước khi tag nếu cần.
+  releaseNotesFile: release-notes.md

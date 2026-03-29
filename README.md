@@ -72,32 +72,32 @@ npm run dist:mac   # macOS DMG only
 
 ## CI/CD (GitHub Actions)
 
-Flow theo hướng dẫn “best practice”: **một workflow** chạy **song song trên Ubuntu / Windows / macOS**, không cần máy thật từng OS. Repo này dùng **electron-vite + electron-builder**, không dùng Electron Forge — tương đương `forge publish` + `publisher-github` là:
+This follows a common “best practice” setup: **one workflow** runs **in parallel on Ubuntu, Windows, and macOS**—no need for a physical machine per OS. This repo uses **electron-vite + electron-builder** (not Electron Forge). The equivalent of `forge publish` + GitHub publisher is:
 
-1. Trong **`package.json`**: script `"publish": "npm run build && electron-builder --publish always"` (đã có).
-2. Trong **`electron-builder.yml`**: **`publish.provider: github`** và **`releaseType: draft`** (bản nháp trên GitHub; bạn bấm **Publish release** khi xong).
+1. In **`package.json`**: the `"publish": "npm run build && electron-builder --publish always"` script (already present).
+2. In **`electron-builder.yml`**: **`publish.provider: github`**, **`releaseType: draft`**, and **`releaseNotesFile: release-notes.md`** — the contents of **[`release-notes.md`](release-notes.md)** become the GitHub Release description (edit that file before tagging if you want different release notes).
 
 | Workflow | File | Role |
 |----------|------|------|
-| **CI** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Push/PR tới `main` / `master`: `npm ci` + `npm run build` (Node 22). |
-| **Release** | [`.github/workflows/release.yml`](.github/workflows/release.yml) | **Release Electron App**: khi push tag `v*`, matrix `windows-latest` / `macos-latest` / `ubuntu-latest` → `npm ci` → **`npm run publish`** (mỗi máy đóng gói và đẩy artifact của OS đó lên cùng một GitHub Release dạng draft). |
+| **CI** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | On push/PR to `main` / `master`: `npm ci` + `npm run build` (Node 22). |
+| **Release** | [`.github/workflows/release.yml`](.github/workflows/release.yml) | **Release Electron App**: on push of tag `v*`, matrix `windows-latest` / `macos-latest` / `ubuntu-latest` → `npm ci` → **`npm run publish`** (each runner builds and uploads its OS artifacts to the same GitHub Release as a **draft**). |
 
-### Bước 3 — Quyền Ghi cho `GITHUB_TOKEN` (một lần)
+### One-time: write access for `GITHUB_TOKEN`
 
 **Settings → Actions → General → Workflow permissions → Read and write permissions → Save.**  
-Workflow đã có `permissions: contents: write`; `GH_TOKEN`/`GITHUB_TOKEN` dùng cho `electron-builder publish`.
+The workflow already sets `permissions: contents: write`; `GH_TOKEN` / `GITHUB_TOKEN` is used by `electron-builder publish`.
 
-### Bước 4 — Phát hành (tag)
+### Releasing (tags)
 
 ```bash
-npm version patch   # hoặc minor | major — cập nhật package.json + tạo tag v…
+npm version patch   # or minor | major — updates package.json and creates tag v…
 git push origin main --follow-tags
-# hoặc: git push origin main && git push --tags
+# or: git push origin main && git push --tags
 ```
 
-Sau vài phút: **Actions** có workflow **Release Electron App** (3 job). **Releases** có bản **Draft** cùng tag; chỉnh release notes → **Publish release**.
+After a few minutes: **Actions** shows **Release Electron App** (three jobs). **Releases** has a **Draft** for that tag; adjust release notes if needed, then **Publish release**.
 
-Để đổi từ draft sang **publish ngay** trên GitHub, set trong `electron-builder.yml` → `publish.releaseType: release` (hoặc `prerelease`).
+To publish **immediately** on GitHub instead of a draft, set `publish.releaseType: release` (or `prerelease`) in `electron-builder.yml`.
 
 ## Conventions
 
