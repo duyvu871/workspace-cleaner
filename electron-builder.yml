@@ -19,6 +19,8 @@ linux:
     - AppImage
     - deb
   category: Utility
+  # Bắt buộc cho .deb (maintainer); đổi email nếu bạn dùng địa chỉ thật
+  maintainer: duyvu871 <duyvu871@users.noreply.github.com>
 
 mac:
   target: dmg

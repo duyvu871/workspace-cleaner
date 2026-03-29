@@ -1,7 +1,12 @@
 {
   "name": "workspace-cleaner",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Scan and delete space-hogging dev folders and Docker data",
+  "author": "duyvu871 <duyvu871@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/duyvu871/workspace-cleaner.git"
+  },
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
