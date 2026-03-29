@@ -1,48 +1,75 @@
 # Workspace Cleaner
 
-A web-based utility to scan your system for large unused folders like `node_modules`, `venv`, `target`, and Docker images/volumes, and easily delete them to free up disk space.
+A cross-platform desktop app (Electron) to scan your system for large unused folders like `node_modules`, `.venv`, `target`, and Docker images/volumes, and delete them to free disk space.
 
-![Dashboard Mockup](./public/mockup.png)
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Desktop shell | Electron 41.x |
+| UI | React 19 + Tailwind v4 + shadcn/ui (new-york) |
+| State | TanStack Query v5 + React state |
+| Validation | Zod |
+| Build | electron-vite (Vite 6 + esbuild) |
+| Packaging | electron-builder |
+| Language | TypeScript 5.x |
 
 ## Features
-- **Dashboard UI**: Clean and easy to use dashboard UI.
-- **Side-by-side Layout**: Left side for configuring root paths and target types, right side for evaluating and selecting items to delete.
-- **Multiple Targets**: Detects Node, Python, Java, PHP, .NET cache folders and build outputs, as well as Docker Images and Volumes.
-- **Safety checks**: Restricts deletion and ensures paths are validated before any `rm -rf` operations are executed.
 
-## Technologies Used
-- **Backend:** Node.js, Express, TypeScript, Zod
-- **Frontend:** HTML, Tailwind CSS, Alpine.js, Lucide Icons
+- Scan recursively for dev artifact folders: `node_modules`, `.venv`, `__pycache__`, `target`, `dist`, `build`, `.next`, etc.
+- Scan Docker images and volumes
+- Real-time streaming progress via Electron IPC (replacing SSE)
+- Native folder picker (`dialog.showOpenDialog`)
+- Select and bulk-delete with confirmation dialog
+- Fully typed IPC API with structured error responses
+- Safety checks: paths validated before any `rm -rf`
+
+## Architecture
+
+```
+src/
+├── main/          # Electron main process (Node.js)
+│   ├── ipc/       # IPC handlers (scan, delete, system-info, dialog)
+│   └── services/  # Business logic (scan-service, delete-service, etc.)
+├── preload/       # contextBridge API (typed, secure)
+├── renderer/      # React app (Vite)
+│   └── src/
+│       ├── components/  # shadcn UI + custom components
+│       ├── hooks/       # IPC-backed React hooks
+│       ├── lib/         # utils, format, api
+│       └── pages/       # workspace-cleaner-page.tsx
+└── shared/        # Types, IPC channels, error codes (shared between main & renderer)
+```
 
 ## Prerequisites
-- [Node.js](https://nodejs.org/) (v16+)
-- Docker (optional, but needed to scan and clean docker volumes/images)
+
+- [Node.js](https://nodejs.org/) v20+
+- Docker (optional, for scanning Docker images/volumes)
 
 ## Getting Started
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npm run dev        # Start Electron app with hot reload
+```
 
-2. **Start the application:**
-   ```bash
-   npm start
-   ```
-   Or for development (with auto-reload):
-   ```bash
-   npm run dev
-   ```
+## Build & Package
 
-3. **Access the application:**
-   Open your browser and navigate to `http://localhost:3456`.
+```bash
+npm run build      # Build all processes (main, preload, renderer)
+npm run dist       # Build + package with electron-builder
+npm run dist:linux # Build + package for Linux only
+```
 
-## Using the Tool
+Built output: `release/` directory (AppImage / deb on Linux, DMG on macOS, NSIS on Windows).
 
-1. Enter the absolute path to start scanning from in the **Scan Directory** input box (or select quick options like Home, Root, or Workspace).
-2. Check the relevant targets you wish to scan (Node.js, Python, Java, Docker, System Caches, etc).
-3. Click "Start Scan". The tool will recursively look through the directories.
-4. On the right panel, confirm which items to delete or bulk-select them. 
-5. Click **Delete Selected**.
+## Conventions
 
-> **Warning:** Use this carefully! Deleting caches or dependencies will not break your apps, but may require reinstalling dependencies (e.g. `npm install` or `pip install`) when you revisit those projects.
+See [`.cursor/rules/workspace-cleaner.mdc`](.cursor/rules/workspace-cleaner.mdc) for:
+- File naming (kebab-case)
+- Directory structure
+- IPC pattern
+- Error handling
+- Styling rules
+
+> **Warning:** Deleting caches and dependencies is permanent. You may need to run `npm install`, `pip install`, etc. again in affected projects.
