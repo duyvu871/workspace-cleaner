@@ -72,19 +72,32 @@ npm run dist:mac   # macOS DMG only
 
 ## CI/CD (GitHub Actions)
 
-Shared settings live in **[`.github/ci-config.yml`](.github/ci-config.yml)** (Node version, release matrix: runner OS per platform, Linux `apt` packages, `electron-builder` flags). Workflows read this file via **[`.github/scripts/read-ci-config.rb`](.github/scripts/read-ci-config.rb)**.
+Flow theo hướng dẫn “best practice”: **một workflow** chạy **song song trên Ubuntu / Windows / macOS**, không cần máy thật từng OS. Repo này dùng **electron-vite + electron-builder**, không dùng Electron Forge — tương đương `forge publish` + `publisher-github` là:
 
-- **CI** (`.github/workflows/ci.yml`): runs on pushes and pull requests to `main` / `master` — `npm ci` and `npm run build` (Node version from `ci-config.yml`).
-- **Release** (`.github/workflows/release.yml`): on every push of a **version tag** `v*` (for example `v1.0.1`), builds installers on **Linux**, **Windows**, and **macOS** in parallel, then uploads all artifacts to a **GitHub Release** with auto-generated notes.
+1. Trong **`package.json`**: script `"publish": "npm run build && electron-builder --publish always"` (đã có).
+2. Trong **`electron-builder.yml`**: **`publish.provider: github`** và **`releaseType: draft`** (bản nháp trên GitHub; bạn bấm **Publish release** khi xong).
 
-When adding a new OS or changing the Ubuntu runner, edit `ci-config.yml` and keep **branch names** in `ci:` aligned with `on.push.branches` in `ci.yml`. Tag patterns for releases are declared in `release.yml` (`on.push.tags`) and documented under `release.tag_pattern` in `ci-config.yml`.
+| Workflow | File | Role |
+|----------|------|------|
+| **CI** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Push/PR tới `main` / `master`: `npm ci` + `npm run build` (Node 22). |
+| **Release** | [`.github/workflows/release.yml`](.github/workflows/release.yml) | **Release Electron App**: khi push tag `v*`, matrix `windows-latest` / `macos-latest` / `ubuntu-latest` → `npm ci` → **`npm run publish`** (mỗi máy đóng gói và đẩy artifact của OS đó lên cùng một GitHub Release dạng draft). |
 
-Release steps:
+### Bước 3 — Quyền Ghi cho `GITHUB_TOKEN` (một lần)
 
-1. Bump `"version"` in `package.json` (and commit).
-2. Create and push a tag: `git tag v1.0.1 && git push origin v1.0.1`
+**Settings → Actions → General → Workflow permissions → Read and write permissions → Save.**  
+Workflow đã có `permissions: contents: write`; `GH_TOKEN`/`GITHUB_TOKEN` dùng cho `electron-builder publish`.
 
-You can also run the **Release** workflow manually from the Actions tab (**Run workflow**) to verify all three platform builds without creating a tag; artifact files will appear on the workflow run (no GitHub Release is created unless the ref is a `v*` tag).
+### Bước 4 — Phát hành (tag)
+
+```bash
+npm version patch   # hoặc minor | major — cập nhật package.json + tạo tag v…
+git push origin main --follow-tags
+# hoặc: git push origin main && git push --tags
+```
+
+Sau vài phút: **Actions** có workflow **Release Electron App** (3 job). **Releases** có bản **Draft** cùng tag; chỉnh release notes → **Publish release**.
+
+Để đổi từ draft sang **publish ngay** trên GitHub, set trong `electron-builder.yml` → `publish.releaseType: release` (hoặc `prerelease`).
 
 ## Conventions
 

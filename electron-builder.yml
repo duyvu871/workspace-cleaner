@@ -14,6 +14,8 @@ files:
   - out/**/*
   - package.json
 
+afterAllArtifactBuild: scripts/after-all-artifact-build.cjs
+
 linux:
   target:
     - AppImage
@@ -28,3 +30,14 @@ mac:
 
 win:
   target: nsis
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+# Đăng lên GitHub Releases khi chạy: GH_TOKEN=… npm run publish (hoặc CI)
+# releaseType: draft → bản nháp; mở Releases trên GitHub rồi Publish release
+publish:
+  provider: github
+  releaseType: draft
