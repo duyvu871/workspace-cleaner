@@ -1,6 +1,6 @@
 {
   "name": "workspace-cleaner",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Scan and delete space-hogging dev folders and Docker data",
   "author": "duyvu871 <duyvu871@users.noreply.github.com>",
   "repository": {

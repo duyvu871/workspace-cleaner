@@ -75,7 +75,7 @@ npm run dist:mac   # macOS DMG only
 This follows a common “best practice” setup: **one workflow** runs **in parallel on Ubuntu, Windows, and macOS**—no need for a physical machine per OS. This repo uses **electron-vite + electron-builder** (not Electron Forge). The equivalent of `forge publish` + GitHub publisher is:
 
 1. In **`package.json`**: the `"publish": "npm run build && electron-builder --publish always"` script (already present).
-2. In **`electron-builder.yml`**: **`publish.provider: github`**, **`releaseType: draft`**, and **`releaseNotesFile: release-notes.md`** — the contents of **[`release-notes.md`](release-notes.md)** become the GitHub Release description (edit that file before tagging if you want different release notes).
+2. In **`electron-builder.yml`**: **`publish.provider: github`** and **`releaseType: draft`**, plus **`releaseInfo.releaseNotesFile: release-notes.md`** — the contents of **[`release-notes.md`](release-notes.md)** become the GitHub Release description (`releaseInfo` is required for notes in electron-builder v26; do not put `releaseNotesFile` under `publish`).
 
 | Workflow | File | Role |
 |----------|------|------|

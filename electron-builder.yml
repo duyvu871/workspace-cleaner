@@ -34,10 +34,11 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 
-# Đăng lên GitHub Releases khi chạy: GH_TOKEN=… npm run publish (hoặc CI)
-# releaseType: draft → bản nháp; mở Releases trên GitHub rồi Publish release
+# GitHub Releases: GH_TOKEN / GITHUB_TOKEN + npm run publish (or CI).
+# Draft vs published: publish.releaseType. Release body text: releaseInfo (not under publish — v26 schema).
+releaseInfo:
+  releaseNotesFile: release-notes.md
+
 publish:
   provider: github
   releaseType: draft
-  # Nội dung mô tả trên GitHub Release (draft). Sửa file này trước khi tag nếu cần.
-  releaseNotesFile: release-notes.md
