@@ -1,0 +1,25 @@
+# Cấu hình đóng gói — electron-builder tự đọc file này ở thư mục gốc project.
+# Tài liệu: https://www.electron.build/configuration
+
+appId: dev.tools.workspace-cleaner
+productName: Workspace Cleaner
+
+directories:
+  output: release
+
+files:
+  - out/**/*
+  - package.json
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+
+mac:
+  target: dmg
+  category: public.app-category.utilities
+
+win:
+  target: nsis

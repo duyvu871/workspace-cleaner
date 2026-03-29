@@ -7,4 +7,5 @@ dist/
 .agent/
 .cursor/
 out/
+release/
 .shared/

@@ -8,7 +8,9 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "dist": "npm run build && electron-builder",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -38,30 +40,5 @@
     "electron-vite": "^3.1.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0"
-  },
-  "build": {
-    "appId": "dev.tools.workspace-cleaner",
-    "productName": "Workspace Cleaner",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "out/**/*",
-      "package.json"
-    ],
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Utility"
-    },
-    "mac": {
-      "target": "dmg",
-      "category": "public.app-category.utilities"
-    },
-    "win": {
-      "target": "nsis"
-    }
   }
 }

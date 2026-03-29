@@ -55,6 +55,8 @@ npm run dev        # Start Electron app with hot reload
 
 ## Build & Package
 
+Packaging is configured in **[`electron-builder.yml`](electron-builder.yml)** (app id, targets per OS, `release/` output). `package.json` no longer embeds the `build` field.
+
 ```bash
 npm run build      # Build all processes (main, preload, renderer)
 npm run dist       # Build + package with electron-builder
@@ -62,6 +64,27 @@ npm run dist:linux # Build + package for Linux only
 ```
 
 Built output: `release/` directory (AppImage / deb on Linux, DMG on macOS, NSIS on Windows).
+
+```bash
+npm run dist:win   # Windows installer only
+npm run dist:mac   # macOS DMG only
+```
+
+## CI/CD (GitHub Actions)
+
+Shared settings live in **[`.github/ci-config.yml`](.github/ci-config.yml)** (Node version, release matrix: runner OS per platform, Linux `apt` packages, `electron-builder` flags). Workflows read this file via **[`.github/scripts/read-ci-config.rb`](.github/scripts/read-ci-config.rb)**.
+
+- **CI** (`.github/workflows/ci.yml`): runs on pushes and pull requests to `main` / `master` — `npm ci` and `npm run build` (Node version from `ci-config.yml`).
+- **Release** (`.github/workflows/release.yml`): on every push of a **version tag** `v*` (for example `v1.0.1`), builds installers on **Linux**, **Windows**, and **macOS** in parallel, then uploads all artifacts to a **GitHub Release** with auto-generated notes.
+
+When adding a new OS or changing the Ubuntu runner, edit `ci-config.yml` and keep **branch names** in `ci:` aligned with `on.push.branches` in `ci.yml`. Tag patterns for releases are declared in `release.yml` (`on.push.tags`) and documented under `release.tag_pattern` in `ci-config.yml`.
+
+Release steps:
+
+1. Bump `"version"` in `package.json` (and commit).
+2. Create and push a tag: `git tag v1.0.1 && git push origin v1.0.1`
+
+You can also run the **Release** workflow manually from the Actions tab (**Run workflow**) to verify all three platform builds without creating a tag; artifact files will appear on the workflow run (no GitHub Release is created unless the ref is a `v*` tag).
 
 ## Conventions
 
