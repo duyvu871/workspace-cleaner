@@ -55,7 +55,7 @@ npm run dev        # Start Electron app with hot reload
 
 ## Build & Package
 
-Packaging is configured in **[`electron-builder.yml`](electron-builder.yml)** (app id, targets per OS, `release/` output). `package.json` no longer embeds the `build` field.
+Packaging is configured in **[`electron-builder.yml`](electron-builder.yml)** (app id, **`icon: public/logo.png`** for installers & OS bundles, targets per OS, `release/` output). `package.json` no longer embeds the `build` field.
 
 ```bash
 npm run build      # Build all processes (main, preload, renderer)

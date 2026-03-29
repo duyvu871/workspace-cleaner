@@ -4,6 +4,9 @@
 appId: dev.tools.workspace-cleaner
 productName: Workspace Cleaner
 
+# Icon cho .exe / .dmg / AppImage / .deb — PNG ≥512px (electron-builder tự tạo .ico / .icns khi cần)
+icon: public/logo.png
+
 directories:
   output: release
 
