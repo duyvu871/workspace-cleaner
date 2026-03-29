@@ -14,8 +14,6 @@ files:
   - out/**/*
   - package.json
 
-afterAllArtifactBuild: scripts/after-all-artifact-build.cjs
-
 linux:
   target:
     - AppImage
