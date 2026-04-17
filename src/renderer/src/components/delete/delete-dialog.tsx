@@ -36,7 +36,7 @@ export function DeleteDialog({
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-1">
-            <div className="size-10 bg-destructive/10 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="size-10 bg-destructive/10 rounded-full flex items-center justify-center shrink-0">
               <AlertTriangle className="size-5 text-destructive" />
             </div>
             <div>
@@ -49,9 +49,12 @@ export function DeleteDialog({
         <ScrollArea className="max-h-48 rounded-lg border border-border bg-muted/30 p-3">
           <div className="space-y-1.5">
             {selectedItems.map((item) => (
-              <div key={item.path} className="text-xs text-muted-foreground flex items-center gap-2">
-                <FolderMinus className="size-3.5 text-destructive/70 flex-shrink-0" />
-                <span className="truncate">
+              <div
+                key={item.path}
+                className="text-xs text-muted-foreground flex items-start gap-2 min-w-0"
+              >
+                <FolderMinus className="size-3.5 text-destructive/70 shrink-0" />
+                <span className="min-w-0 break-all">
                   {item.isVirtual
                     ? item.path.replace(/docker-(image|volume):/, 'ID: ')
                     : item.path}
