@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { ScanResults } from '@/components/scan/scan-results'
 import { DeleteBar } from '@/components/delete/delete-bar'
 import { DeleteDialog } from '@/components/delete/delete-dialog'
+import { DeleteLogPanel } from '@/components/delete/delete-log-panel'
 import { useSystemInfo } from '@/hooks/use-system-info'
 import { useScan } from '@/hooks/use-scan'
 import { useDelete } from '@/hooks/use-delete'
@@ -24,7 +25,7 @@ export default function WorkspaceCleanerPage() {
     })
   }, [])
 
-  const { state: deleteState, startDelete } = useDelete(handleItemDeleted)
+  const { state: deleteState, logs: deleteLogs, startDelete } = useDelete(handleItemDeleted)
 
   function handleScan(
     rootPath: string,
@@ -77,10 +78,9 @@ export default function WorkspaceCleanerPage() {
             onCancel={cancelScan}
           />
 
-          {/* Results panel */}
           <section className="flex-1 flex flex-col bg-background relative min-w-0">
             <div
-              className="flex-1 flex flex-col min-h-0 p-6 overflow-hidden transition-all duration-300"
+              className="flex-1 flex flex-col min-h-0 p-4 overflow-hidden transition-all duration-300"
               style={{ paddingBottom: selected.size > 0 ? '88px' : undefined }}
             >
               <ScanResults
@@ -100,6 +100,8 @@ export default function WorkspaceCleanerPage() {
               onDelete={() => setConfirmOpen(true)}
             />
           </section>
+
+          <DeleteLogPanel logs={deleteLogs} deleting={deleteState.deleting} />
         </main>
 
         <DeleteDialog
